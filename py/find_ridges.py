@@ -124,18 +124,19 @@ def main():
     todo
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--directory", default="data/faust_det_60")
-    parser.add_argument("-i", "--input_file", default="raw.parquet")
-    parser.add_argument("-o", "--output_file", default="ridges.parquet")
+    parser.add_argument("directory", type="str")
     parser.add_argument("-p", "--plot", action="store_true")
     args = parser.parse_args()
+
+    input_file = "raw.parquet"
+    output_file = "ridges.parquet"
 
     param_manager = ParamManager(args.directory)
 
     #
     # data cleaning
     #
-    df_file_name = os.path.join(args.directory, args.input_file)
+    df_file_name = os.path.join(args.directory, input_file)
     print(f"Reading df {df_file_name}")
     df = (
         pl.scan_parquet(df_file_name)
@@ -175,8 +176,8 @@ def main():
     #
     # Output
     #
-    os.path.join(args.directory, args.output_file)
-    output_file = os.path.join(args.directory, args.output_file)
+    os.path.join(args.directory, output_file)
+    output_file = os.path.join(args.directory, output_file)
 
     print(f"Writing output points to {output_file}")
     maximal_y_pnts.write_parquet(output_file)
