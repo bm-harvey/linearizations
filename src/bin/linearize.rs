@@ -24,7 +24,6 @@ enum UseExtrapolated {
 
 impl Curve {
     /// expects a simple df with an "x" an "y" col
-
     fn from_parquet_file(file: &str, extrapolation_use: UseExtrapolated) -> Result<Self> {
         let mut file = File::open(file)?;
         let df = ParquetReader::new(&mut file).finish()?;
@@ -364,7 +363,7 @@ fn create_extended_curves(
             match (upper_spanning_curve, lower_spanning_curve) {
                 // just linearly extend the current curve
                 (None, None) => {
-                    curve.extend_from_lowess(new_x, false, &params);
+                    curve.extend_from_lowess(new_x, false, params);
                 }
                 // keep the delta between  this curve and the curve above constant
                 (Some(upper_curve), None) => {
@@ -467,7 +466,7 @@ fn create_extended_curves(
             match (upper_spanning_curve, lower_spanning_curve) {
                 // just linearly extend the current curve
                 (None, None) => {
-                    curve.extend_from_lowess(new_x, true, &params);
+                    curve.extend_from_lowess(new_x, true, params);
                 }
                 //(None, None) => curve.insert_point(0, new_x, curve.evaluate(new_x)),
                 // keep the delta between  this curve and the curve above constant
@@ -546,9 +545,9 @@ fn linearize(curves: &[Curve], xs: &[Option<f64>], ys: &[Option<f64>]) -> Vec<f6
                         }
                     }
                 }
-            } // for est_curve
+            }
 
-            let new_y = match (upper_spanning_curve, lower_spanning_curve) {
+            match (upper_spanning_curve, lower_spanning_curve) {
                 // just linearly extend the current curve
                 (None, None) => f64::NAN,
                 // keep the delta between  this curve and the curve above constant
@@ -560,8 +559,7 @@ fn linearize(curves: &[Curve], xs: &[Option<f64>], ys: &[Option<f64>]) -> Vec<f6
                     (upper_curve.evaluate(6.8) * dy_lower - lower_curve.evaluate(6.8) * dy_upper)
                         / (dy_lower - dy_upper)
                 }
-            };
-            new_y
+            }
         })
         .collect::<Vec<_>>();
     z_lin
@@ -629,9 +627,9 @@ fn main() -> Result<()> {
     let df = ParquetReader::new(&mut file).finish()?;
     let mut df = df
         .lazy()
-        .select(&[col(&params.x_col()), col(&params.y_col())])
-        .with_column(col(&params.x_col()).alias("x"))
-        .with_column(col(&params.y_col()).alias("y"))
+        .select(&[col(params.x_col()), col(params.y_col())])
+        .with_column(col(params.x_col()).alias("x"))
+        .with_column(col(params.y_col()).alias("y"))
         .drop_nulls(Some(vec!["x".into(), "y".into()]))
         .collect()?;
     let float_cmp = |a: f64, b: f64| a.partial_cmp(&b).unwrap();
@@ -691,7 +689,7 @@ fn main() -> Result<()> {
             "x"=>&xs,
             "y"=>&ys,
         )?;
-        let file = Path::new(&output_dir).join(&format!("curve_{}.parquet", idx));
+        let file = Path::new(&output_dir).join(format!("curve_{}.parquet", idx));
         let mut file = std::fs::File::create(file)?;
 
         ParquetWriter::new(&mut file).finish(&mut df)?;
@@ -701,12 +699,12 @@ fn main() -> Result<()> {
     let ys = df["y"].f64()?.into_iter().collect::<Vec<_>>();
     let z_lin = linearize(&extended_curves, &xs, &ys);
 
-    let mut df = df.with_column(Series::new("z_lin", z_lin))?;
+    let df = df.with_column(Series::new("z_lin", z_lin))?;
 
     let output_dir = Path::new(&args.directory).join("linearized.parquet");
     let mut file = std::fs::File::create(output_dir)?;
 
-    ParquetWriter::new(&mut file).finish(&mut df)?;
+    ParquetWriter::new(&mut file).finish(df)?;
 
     println!("\ttime: {} s", timer.elapsed().as_secs_f32());
     Ok(())
