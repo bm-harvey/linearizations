@@ -1,0 +1,35 @@
+# === GLOBAL SETTINGS ===
+# name of the x column
+x_col: csi_sqrt
+# name of the y column 
+# (data will be linearized by moving in the y direction)
+y_col: si_sqrt
+
+# === RIDGE EXTRACTION ===
+# sigma of a gaussian kernel used when calculating derivatives
+# larger values might wash out features but smaller values allow for statistical
+# fluctuations to dominate more.
+# See: https://scikit-image.org/docs/stable/api/skimage.filters.html#skimage.filters.meijering
+sigma : 2.0
+# Every pixel will be assigned a level of "ridgeness" (this is obviously purely intuitive at this level). 
+# This threshold acts the limit in which a pixel is considered a member of a ridge.
+# Generally a good idea to adjust this parameter by order of magnitude before you adjust it incrementally
+# See: https://scikit-image.org/docs/stable/api/skimage.filters.html#skimage.filters.meijering
+threshold : 5e-4
+# number of bins in x and y. More bins will run slower but provide more fidelity, loosely you generaly 
+# want more bins and compensate with a larger sigma, but you can weight your x and y values by 
+# using different number of bins in each direction 
+bins_x : 1024
+bins_y : 1024
+
+# === CURVE SELECTION ===
+
+# === LOWESS SMOOTHING ===
+# fraction of data to use when fitting local regression. Larger number results in smoother function 
+# but too large of a number will fail to accuratly represent local structure
+bandwidth: 0.1
+# order of poly to fit local regions with. more curvature can be handled theoretically be handled by higher order. 
+# In practice 1 seems to be universally decent. This is probably the last parameter to try changing
+polynomial_order: 1
+
+# === LINEARIZING ===
