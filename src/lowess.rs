@@ -112,8 +112,7 @@ impl Lowess {
         let wmt_wm_xm = &xmt_wm * xm;
         let inv = wmt_wm_xm.pseudo_inverse(1e-5).unwrap();
         let beta = (inv * xmt_wm) * ym;
-        let y = (beta.transpose() * xp)[0];
-        y
+        (beta.transpose() * xp)[0]
     }
     pub fn estimate_stats(
         &self,
@@ -135,8 +134,7 @@ impl Lowess {
         let b = (sum_weight_xy - mean_x * mean_y * sum_weight)
             / (sum_weight_x2 - mean_x * mean_x * sum_weight);
         let a = mean_y - b * mean_x;
-        let y = a + b * n_x;
-        y
+        a + b * n_x
     }
 
     pub fn estimate(&self, x: f64, window: usize, use_matrix: bool, degree: usize) -> f64 {
