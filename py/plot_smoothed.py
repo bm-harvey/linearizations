@@ -36,9 +36,7 @@ def main():
     )
 
     lin_df = (
-        pl.scan_parquet(linearized_data)
-        .collect()
-        .with_columns(z_lin=pl.col("z_lin") / 17 - 0.8)
+        pl.scan_parquet(linearized_data).collect().with_columns(z_lin=pl.col("z_lin"))
     )
 
     fig, axs = plt.subplots(1, 1, figsize=(8, 8), layout="tight")
