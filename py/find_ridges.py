@@ -124,7 +124,7 @@ def main():
     todo
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("directory", type="str")
+    parser.add_argument("directory", type=str)
     parser.add_argument("-p", "--plot", action="store_true")
     args = parser.parse_args()
 
