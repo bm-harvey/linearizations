@@ -876,8 +876,8 @@ class PlotCanvas(FigureCanvas):
         FigureCanvas.__init__(self, self.fig)
         self.canvas = self.fig.canvas
         self.setParent(parent)
-        self.fig.patch.set_linewidth(3)
-        self.fig.patch.set_edgecolor("white")
+        self.fig.patch.set_linewidth(5)
+        self.fig.patch.set_edgecolor("black")
 
         FigureCanvas.setSizePolicy(
             self, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
@@ -906,9 +906,7 @@ class PlotCanvas(FigureCanvas):
             norm="log",
             aspect="auto",
             ax=self.ax,
-            # cmap="Greys_r",
             cmap=cmr.horizon_r,
-            # cmap="inferno",
             alpha=0.5,
         )
 

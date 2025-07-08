@@ -212,13 +212,10 @@ class LinCanvas(FigureCanvas):
     def __init__(self, app_data, parent=None, width=8, height=6, dpi=100, arg=0):
         self.arg = arg
         self.fig, self.axs = plt.subplots(
-            3, 1, gridspec_kw=dict(height_ratios=[3, 1, 1], wspace=0), sharex=True
+            1, 1, gridspec_kw=dict(height_ratios=[1], wspace=0), sharex=True
         )
-        self.fig.subplots_adjust(hspace=0)
         self.arg = arg
-        self.ax1 = self.axs[0]
-        self.ax2 = self.axs[1]
-        self.ax3 = self.axs[2]
+        self.ax1 = self.axs
         self.app_data = app_data
         FigureCanvas.__init__(self, self.fig)
         self.canvas = self.fig.canvas
@@ -238,25 +235,7 @@ class LinCanvas(FigureCanvas):
             aspect="auto",
             ax=self.ax1,
             cmap=cmr.horizon_r,
-            # cmap=cmr.rainforest_r,
-            # cmap=cmr.tropical,
-            # alpha=0.5,
         )
-        self.ax2.hist(
-            self.app_data.raw_df["z_lin"],
-            histtype="step",
-            color="w",
-            bins=self.app_data.bins,
-        )
-        self.ax3.hist(
-            self.app_data.raw_df["z_lin"],
-            histtype="step",
-            color="w",
-            bins=self.app_data.bins,
-        )
-        self.ax3.set_yscale("log")
-        # self.ax3.sharex(self.ax1)
-        # self.ax2.sharex(self.ax1)
 
         self.draw()
 
