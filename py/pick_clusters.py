@@ -7,6 +7,7 @@ from enum import Enum
 
 import cmasher as cmr
 import datashader as ds
+import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 from datashader.mpl_ext import dsshow
@@ -15,9 +16,10 @@ from matplotlib.backends.backend_qt5agg import FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
+from param_manager.param_manager import ParamManager
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QObject, Qt, pyqtSlot
-from PyQt5.QtGui import QKeySequence
+from PyQt5.QtGui import QColor, QKeySequence, QPalette
 from PyQt5.QtWidgets import (
     QApplication,
     QGroupBox,
@@ -32,7 +34,14 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from param_manager.param_manager import ParamManager
+plt.rcParams["axes.facecolor"] = (35 / 235, 35 / 235, 35 / 235)
+plt.rcParams["figure.facecolor"] = (35 / 235, 35 / 235, 35 / 235)
+plt.rcParams["axes.edgecolor"] = "white"
+plt.rcParams["axes.labelcolor"] = "white"
+plt.rcParams["axes.titlecolor"] = "white"
+plt.rcParams["text.color"] = "white"
+plt.rcParams["xtick.labelcolor"] = "white"
+plt.rcParams["ytick.labelcolor"] = "white"
 
 
 class InteractorManager(QObject):
@@ -122,7 +131,7 @@ class AppData:
             case CurveStatus.ACTIVE:
                 return self.active_color
             case _:
-                return "black"
+                return "white"
 
     def set_mode_to_normal(self):
         self.mode = AppMode.NORMAL
@@ -499,10 +508,10 @@ class ModeSelector(QWidget):
 
         self.layout.addWidget(self.group_box, alignment=QtCore.Qt.AlignTop)
 
-        self.normal_mode_radio_btn = QRadioButton("Normal")
-        self.point_pick_mode_radio_btn = QRadioButton("Point Pick")
-        self.point_delete_mode_radio_btn = QRadioButton("Point Delete")
-        self.select_curve_radio_btn = QRadioButton("Curve Select")
+        self.normal_mode_radio_btn = QRadioButton("Normal (T)")
+        self.point_pick_mode_radio_btn = QRadioButton("Point Pick (T)")
+        self.point_delete_mode_radio_btn = QRadioButton("Point Delete (D)")
+        self.select_curve_radio_btn = QRadioButton("Curve Select (C)")
 
         self.normal_mode_radio_btn.toggled.connect(self.app_data.set_mode_to_normal)
 
@@ -561,7 +570,7 @@ class ModeSelector(QWidget):
                 self.app_data.set_mode_to_point_picking()
             case AppMode.POINT_PICKING:
                 self.app_data.set_mode_to_normal()
-            case AppMode.POINT_DELETE:
+            case _:
                 self.app_data.set_mode_to_point_picking()
 
         self.update_radio_btn()
@@ -667,7 +676,7 @@ class ActionsPanel(QWidget):
         self.app_data = app_data
         self.layout = QVBoxLayout(self)
         self.layout.setAlignment(QtCore.Qt.AlignTop)
-        self.save_active_curve_btn = QPushButton("Save Curve")
+        self.save_active_curve_btn = QPushButton("Save Curve (S)")
         self.save_clusters_btn = QPushButton("Save Clusters")
         self.load_clusters_btn = QPushButton("Load Clusters")
 
@@ -822,23 +831,24 @@ class PointPickingGUI(QMainWindow):
         self.canvas_panel = CanvasPanel(app_data=self.app_data)
 
         save_shortcut = QKeySequence(Qt.CTRL + Qt.Key_S)
+        save_shortcut = QKeySequence(Qt.Key_S)
         self.save_shortcut = QShortcut(save_shortcut, self)
         self.save_shortcut.activated.connect(
             self.settings_panel.actions_panel.save_curve
         )
 
-        save_shortcut = QKeySequence(Qt.CTRL + Qt.Key_C)
+        save_shortcut = QKeySequence(Qt.Key_C)
         self.save_shortcut = QShortcut(save_shortcut, self)
         self.save_shortcut.activated.connect(
             self.settings_panel.mode_selector.curve_select_mode
         )
-        toggle_shortcut = QKeySequence(Qt.CTRL + Qt.Key_T)
+        toggle_shortcut = QKeySequence(Qt.Key_T)
         self.toggle_shortcut = QShortcut(toggle_shortcut, self)
         self.toggle_shortcut.activated.connect(
             self.settings_panel.mode_selector.toggle_mode
         )
         self.settings_panel.setFixedWidth(250)
-        delete_shortcut = QKeySequence(Qt.CTRL + Qt.Key_D)
+        delete_shortcut = QKeySequence(Qt.Key_D)
         self.delete_shortcut = QShortcut(delete_shortcut, self)
         self.delete_shortcut.activated.connect(
             self.settings_panel.mode_selector.delete_mode
@@ -866,8 +876,8 @@ class PlotCanvas(FigureCanvas):
         FigureCanvas.__init__(self, self.fig)
         self.canvas = self.fig.canvas
         self.setParent(parent)
-        self.fig.patch.set_linewidth(5)
-        self.fig.patch.set_edgecolor("black")
+        self.fig.patch.set_linewidth(3)
+        self.fig.patch.set_edgecolor("white")
 
         FigureCanvas.setSizePolicy(
             self, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
@@ -897,7 +907,7 @@ class PlotCanvas(FigureCanvas):
             aspect="auto",
             ax=self.ax,
             # cmap="Greys_r",
-            cmap=cmr.eclipse,
+            cmap=cmr.ocean_r,
             # cmap="inferno",
             alpha=0.5,
         )
@@ -909,7 +919,9 @@ class PlotCanvas(FigureCanvas):
         self.ax.set_xlim(min_x - 0.1 * x_range, max_x + 0.1 * x_range)
         self.ax.set_ylim(min_y - 0.1 * y_range, max_y + 0.1 * y_range)
 
-        self.ax.plot(ridges_df["x"], ridges_df["y"], ".k", ms=0.5)
+        self.ax.plot(ridges_df["x"], ridges_df["y"], ".w", ms=0.75)
+        self.ax.set_ylabel(self.app_data.y_col)
+        self.ax.set_xlabel(self.app_data.x_col)
 
         self.app_data.active_curve = CurveInteractor(
             self.ax, [], [], self.app_data, status=CurveStatus.ACTIVE
@@ -1023,9 +1035,24 @@ class PlotCanvas(FigureCanvas):
 
 
 if __name__ == "__main__":
-    print(f"Executing {os.path.abspath(os.path.dirname(__file__))}")
-
-
     app = QApplication(sys.argv)
+    app.setStyle("Fusion")
+
+    # Now use a palette to switch to dark colors:
+    palette = QPalette()
+    palette.setColor(QPalette.Window, QColor(53, 53, 53))
+    palette.setColor(QPalette.WindowText, Qt.white)
+    palette.setColor(QPalette.Base, QColor(25, 25, 25))
+    palette.setColor(QPalette.AlternateBase, QColor(53, 53, 53))
+    palette.setColor(QPalette.ToolTipBase, Qt.black)
+    palette.setColor(QPalette.ToolTipText, Qt.white)
+    palette.setColor(QPalette.Text, Qt.white)
+    palette.setColor(QPalette.Button, QColor(53, 53, 53))
+    palette.setColor(QPalette.ButtonText, Qt.white)
+    palette.setColor(QPalette.BrightText, Qt.red)
+    palette.setColor(QPalette.Link, QColor(42, 130, 218))
+    palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
+    palette.setColor(QPalette.HighlightedText, Qt.black)
+    app.setPalette(palette)
     ex = PointPickingGUI()
     sys.exit(app.exec_())
