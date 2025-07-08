@@ -47,6 +47,10 @@ impl Curve {
         Ok(Self { points })
     }
 
+    fn points(&self) -> &Vec<(f64, f64)> {
+        &self.points
+    }
+
     fn x_at(&self, idx: usize) -> f64 {
         self.points[idx].0
     }
@@ -124,7 +128,7 @@ impl Curve {
 
         let x_range = x_high - x_low;
 
-        let dx = x_range / 20.;
+        let dx = x_range / 200.;
 
         let mut x = x_low;
         let mut xs = vec![];
@@ -146,12 +150,18 @@ impl Curve {
             }
         }
 
-        let avg_frac = dys_frac.iter().sum::<f64>() / dys_frac.len() as f64;
+        let mut avg_frac = dys_frac.iter().sum::<f64>() / dys_frac.len() as f64;
+        if avg_frac < 0.0 {
+            avg_frac = -1. * avg_frac;
+        }
 
         let dy_ref = self.evaluate(ref_x) - reference_curve.evaluate(ref_x);
         let dy_new = dy_ref * avg_frac.powf((new_x - ref_x) / dx);
         let new_y = reference_curve.evaluate(new_x) + dy_new;
 
+        if new_y.is_nan() {
+            panic!()
+        }
         if left_insert {
             self.insert_point(0, new_x, new_y);
         } else {
@@ -167,19 +177,28 @@ impl Curve {
         left_insert: bool,
         params: &ParamManager,
     ) -> &mut Self {
-        let loess = Lowess::new(
-            &nalgebra::DVector::from_vec(self.points.iter().map(|(x, _)| *x).collect_vec()),
-            &nalgebra::DVector::from_vec(self.points.iter().map(|(_, y)| *y).collect_vec()),
-        );
+        let xs = nalgebra::DVector::from_vec(self.points.iter().map(|(x, _)| *x).collect_vec());
+        let ys = nalgebra::DVector::from_vec(self.points.iter().map(|(_, y)| *y).collect_vec());
+        dbg!(&ys);
+        dbg!(&xs);
+        let loess = Lowess::new(&xs, &ys);
 
         let window_size = (((self.points.len() as f64) * params.bandwidth()) as usize)
             .max(params.polynomial_order() as usize);
+
         let new_y = loess.estimate(
             new_x,
             window_size,
             false,
-            params.polynomial_order() as usize,
+            dbg!(params.polynomial_order() as usize),
         );
+
+        dbg!(window_size);
+        dbg!(new_y);
+        dbg!(new_x);
+        if new_y.is_nan() {
+            panic!()
+        }
 
         if left_insert {
             self.insert_point(0, new_x, new_y);
@@ -225,7 +244,11 @@ impl Curve {
             }
         }
 
-        let avg_frac = dys_frac.iter().sum::<f64>() / dys_frac.len() as f64;
+        let mut avg_frac = dys_frac.iter().sum::<f64>() / dys_frac.len() as f64;
+        if avg_frac < 0.0 {
+            avg_frac = -1. * avg_frac;
+        }
+        dbg!(avg_frac);
 
         let dy_ref = self.evaluate(ref_x) - reference_curve_1.evaluate(ref_x);
         let dy_new = dy_ref * avg_frac.powf((new_x - ref_x) / dx);
@@ -258,7 +281,10 @@ impl Curve {
             }
         }
 
-        let avg_frac = dys_frac.iter().sum::<f64>() / dys_frac.len() as f64;
+        let mut avg_frac = dys_frac.iter().sum::<f64>() / dys_frac.len() as f64;
+        if avg_frac < 0.0 {
+            avg_frac = -1. * avg_frac;
+        }
 
         let dy_ref = self.evaluate(ref_x) - reference_curve_2.evaluate(ref_x);
         let dy_new = dy_ref * avg_frac.powf((new_x - ref_x) / dx);
@@ -267,6 +293,12 @@ impl Curve {
         //let new_y = 50.;
         let new_y = 0.5 * (new_y_1 + new_y_2);
         //let new_y = new_y_2;
+
+        if new_y.is_nan() {
+            dbg!(new_y_1);
+            dbg!(new_y_2);
+            panic!()
+        }
         if left_insert {
             self.insert_point(0, new_x, new_y);
         } else {
@@ -551,12 +583,12 @@ fn linearize(curves: &[Curve], xs: &[Option<f64>], ys: &[Option<f64>]) -> Vec<f6
                 // just linearly extend the current curve
                 (None, None) => f64::NAN,
                 // keep the delta between  this curve and the curve above constant
-                (Some(upper_curve), None) => upper_curve.evaluate(6.8) + dy_upper,
+                (Some(upper_curve), None) => upper_curve.y_lims().0 + dy_upper,
                 // keep the delta between  this curve and the curve below constant
-                (None, Some(lower_curve)) => lower_curve.evaluate(6.8) + dy_lower,
+                (None, Some(lower_curve)) => lower_curve.y_lims().0 + dy_lower,
                 // keep the fractional distance between the lower curve and upper curve constant
                 (Some(upper_curve), Some(lower_curve)) => {
-                    (upper_curve.evaluate(6.8) * dy_lower - lower_curve.evaluate(6.8) * dy_upper)
+                    (upper_curve.y_lims().0 * dy_lower - lower_curve.y_lims().0 * dy_upper)
                         / (dy_lower - dy_upper)
                 }
             }
@@ -567,14 +599,14 @@ fn linearize(curves: &[Curve], xs: &[Option<f64>], ys: &[Option<f64>]) -> Vec<f6
 
 fn predict_next_line(curves: &[Curve]) -> Curve {
     let mut curves: Vec<_> = Vec::from(curves);
-    curves.sort_by(|c1, c2| c1.y_at(0).partial_cmp(&c2.y_at(0)).unwrap());
+    curves.sort_by(|c1, c2| dbg!(c1.y_at(0)).partial_cmp(dbg!(&c2.y_at(0))).unwrap());
 
     let curve_2 = &curves[curves.len() - 1];
     let curve_1 = &curves[curves.len() - 2];
 
     let mut curve_3 = Curve::default();
     let mut x = curve_1.x_lims().0;
-    let dx = 1.;
+    let dx = (curve_1.x_lims().1 - curve_1.x_lims().0) / 500.;
     while x < curve_1.x_lims().1 {
         if x > curve_1.x_lims().1 {
             x = curve_1.x_lims().1;
@@ -620,6 +652,8 @@ fn main() -> Result<()> {
                 Curve::from_parquet_file(file_name, UseExtrapolated::None).unwrap(),
             )
         })
+        .filter(|(_, curve)| curve.points().iter().map(|p| p.1).all(|y| !y.is_nan()))
+        .filter(|(_, curve)| curve.points().iter().map(|p| p.0).all(|x| !x.is_nan()))
         .collect::<Vec<_>>();
 
     let file_name = Path::new(&args.directory).join("raw.parquet");
@@ -665,6 +699,8 @@ fn main() -> Result<()> {
             };
             Curve::from_parquet_file(file_name, use_extrapolated).unwrap()
         })
+        .filter(|curve| curve.points().iter().map(|p| p.1).all(|y| !y.is_nan()))
+        .filter(|curve| curve.points().iter().map(|p| p.0).all(|x| !x.is_nan()))
         .collect::<Vec<_>>();
 
     let (x_low, x_high) = (df["x"].min()?.unwrap(), df["x"].max()?.unwrap());
