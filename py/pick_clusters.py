@@ -907,7 +907,7 @@ class PlotCanvas(FigureCanvas):
             aspect="auto",
             ax=self.ax,
             # cmap="Greys_r",
-            cmap=cmr.ocean_r,
+            cmap=cmr.horizon_r,
             # cmap="inferno",
             alpha=0.5,
         )

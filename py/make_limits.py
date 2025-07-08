@@ -179,7 +179,7 @@ class RawCanvas(FigureCanvas):
         self.app_data.raw_df_pd = self.app_data.raw_df.to_pandas()
         dsshow(
             app_data.raw_df_pd,
-            ds.Point("z_lin", self.app_data.params.x_col),
+            ds.Point(self.app_data.params.x_col, self.app_data.params.y_col),
             norm="log",
             aspect="auto",
             ax=self.ax1,
