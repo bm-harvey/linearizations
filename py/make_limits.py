@@ -65,14 +65,18 @@ class Gate:
         self.interactor = None
 
     def set_left(self, value):
+        if value > self.right:
+            self.right += value - self.left
         self.left = value
-        if self.left > self.right:
-            self.left, self.right = self.right, self.left
+
 
     def set_right(self, value):
+        if value < self.left:
+            self.left += value - self.right 
         self.right = value
-        if self.left > self.right:
-            self.left, self.right = self.right, self.left
+        # self.right = value
+        # if self.left > self.right:
+            # self.left, self.right = self.right, self.left
 
     def set_bottom(self, value):
         print("bottom")
@@ -367,7 +371,7 @@ class LinCanvas(FigureCanvas):
             1,
             gridspec_kw=dict(height_ratios=[3, 1, 1], wspace=0),
             sharex=True,
-            axes_class=AxesZero,
+            # axes_class=AxesZero,
         )
         # self.fig = Figure(figsize=(width, height), dpi=dpi)
         # self.ax1 = self.fig.axes
@@ -439,8 +443,8 @@ class LinCanvas(FigureCanvas):
         self.ax3.set_ylabel("counts")
         self.ax2.set_ylabel("counts")
         self.ax1.set_ylabel(self.app_data.params.x_col)
-        self.ax1.axis["top"] = self.ax1.fixed_axis(loc="top", offset=(0, 20))
-        self.ax1.axis["top"].label.set_text("Z")
+        # self.ax1["top"] = self.ax1.fixed_axis(loc="top", offset=(0, 20))
+        # self.ax1["top"].label.set_text("Z")
         # self.ax3.sharex(self.ax1)
         # self.ax2.sharex(self.ax1)
 
