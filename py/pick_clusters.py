@@ -42,6 +42,8 @@ plt.rcParams["axes.titlecolor"] = "white"
 plt.rcParams["text.color"] = "white"
 plt.rcParams["xtick.labelcolor"] = "white"
 plt.rcParams["ytick.labelcolor"] = "white"
+plt.rcParams["xtick.color"] = "white"
+plt.rcParams["ytick.color"] = "white"
 
 
 class InteractorManager(QObject):
