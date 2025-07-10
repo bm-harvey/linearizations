@@ -755,7 +755,6 @@ class ActionsPanel(QWidget):
         )
 
         for idx, curve in enumerate(self.app_data.saved_curves):
-            print(idx)
             curve = curve.curve
             this_curve_df = pl.DataFrame(data={"x": curve.xs, "y": curve.ys})
 
