@@ -69,23 +69,17 @@ class Gate:
             self.right += value - self.left
         self.left = value
 
-
     def set_right(self, value):
         if value < self.left:
-            self.left += value - self.right 
+            self.left += value - self.right
         self.right = value
-        # self.right = value
-        # if self.left > self.right:
-            # self.left, self.right = self.right, self.left
 
     def set_bottom(self, value):
-        print("bottom")
         self.low = value
         if self.low > self.high:
             self.low, self.high = self.high, self.low
 
     def set_top(self, value):
-        print("top")
         self.high = value
         if self.low > self.high:
             self.low, self.high = self.high, self.low
@@ -132,21 +126,6 @@ class LinGateInteractor(QObject):
 
         self.ax.add_patch(self.rect)
 
-        if self.ax is not None:
-            print("add_patch")
-            # self.ax.annotate(
-            # f"({self.gate.z_lbl}, {self.gate.a_lbl})",
-            # xy=(
-            # 0.5 * (self.gate.left + self.gate.right),
-            # self.gate.low + (self.gate.high - self.gate.low) * 1.05,
-            # ),
-            # xycoords="data",
-            # ha="center",
-            # va="bottom",
-            # rotation=90,
-            # )
-            # self.ax.add_line(self.rect)
-
     def update_visuals(self):
         self.rect.set_bounds(
             self.gate.left,
@@ -159,22 +138,11 @@ class LinGateInteractor(QObject):
         )
         self.label.set_y(
             self.gate.low - (self.gate.high - self.gate.low) * 0.05,
-            # - (self.gate.high - self.gate.low) * 1.05,
         )
-        # self.rect = Rectangle(
-        # [self.gate.left, self.gate.low],
-        # self.gate.right - self.gate.left,
-        # self.gate.high - self.gate.low,
-        # facecolor=(0.3, 0, 0, 0.3),
-        # edgecolor="red",
-        # lw=0.5,
-        # )
-        # self.draw()
 
     def draw_callback(self, event):
         self.ax.add_patch(self.rect)
         self.ax.add_artist(self.label)
-        # if sef.ax is not None:
         self.ax.draw_artist(self.rect)
         self.ax.draw_artist(self.label)
         return
@@ -198,7 +166,6 @@ class InteractorManager(QObject):
         self.canvas = self.fig.canvas
         self.canvas.mpl_connect("draw_event", self.draw_callback)
         self.canvas.mpl_connect("motion_notify_event", self.motion_notify_callback)
-        # self.canvas.mpl_connect("scroll_event", self.update_bg_callback)
         self.background = self.canvas.copy_from_bbox(self.ax.bbox)
 
     def draw_callback(self, event):
@@ -222,7 +189,6 @@ class InteractorManager(QObject):
             self.canvas.blit(self.ax.bbox)
 
     def clean(self):
-        print("clean")
         self.canvas.restore_region(self.background)
         for interactor in self.interactors:
             interactor.clean()
@@ -284,7 +250,6 @@ class AppData:
         if self.lin_ax is not None:
             if self.lin_interactor_manager is not None:
                 self.lin_interactor_manager.clean()
-                print(len(self.lin_interactor_manager.interactors))
             self.lin_interactor_manager = InteractorManager(
                 self.lin_fig,
                 self.lin_ax,
@@ -358,8 +323,6 @@ class RawCanvas(FigureCanvas):
 
         self.draw()
 
-        # self.layout = QVBoxLayout(self)
-
 
 class LinCanvas(FigureCanvas):
     def __init__(self, app_data, parent=None, width=8, height=12, dpi=100, arg=0):
@@ -371,15 +334,7 @@ class LinCanvas(FigureCanvas):
             1,
             gridspec_kw=dict(height_ratios=[3, 1, 1], wspace=0),
             sharex=True,
-            # axes_class=AxesZero,
         )
-        # self.fig = Figure(figsize=(width, height), dpi=dpi)
-        # self.ax1 = self.fig.axes
-        # self.ax1 = self.fig.add_subplot(111)
-
-        # self.ax1 = host_subplot(311, axes_class=AA.Axes)
-        # self.ax2 = host_subplot(312, axes_class=AA.Axes)
-        # self.ax3 = host_subplot(313, axes_class=AA.Axes)
 
         self.fig.subplots_adjust(hspace=0)
         self.ax1 = self.axs[0]
@@ -401,7 +356,6 @@ class LinCanvas(FigureCanvas):
 
         self.app_data.raw_df_pd = self.app_data.raw_df.to_pandas()
         x_col = self.app_data.params.x_col
-        # y_col = self.app_data.params.y_col
         ad = self.app_data
 
         y_range = (ad.raw_df[x_col].min(), ad.raw_df[x_col].max())
@@ -415,9 +369,6 @@ class LinCanvas(FigureCanvas):
             ax=self.ax1,
             cmap=cmr.horizon_r,
             y_range=y_range,
-            # cmap=cmr.rainforest_r,
-            # cmap=cmr.tropical,
-            # alpha=0.5,
         )
         self.ax2.hist(
             self.app_data.raw_df["z_lin"],
@@ -435,18 +386,11 @@ class LinCanvas(FigureCanvas):
         )
         self.ax3.set_yscale("log")
 
-        # self.parasite_z_axis = self.ax1
-        # self.parasite_z_axis["top"]
-
         self.ax3.set_xlabel("lin value")
 
         self.ax3.set_ylabel("counts")
         self.ax2.set_ylabel("counts")
         self.ax1.set_ylabel(self.app_data.params.x_col)
-        # self.ax1["top"] = self.ax1.fixed_axis(loc="top", offset=(0, 20))
-        # self.ax1["top"].label.set_text("Z")
-        # self.ax3.sharex(self.ax1)
-        # self.ax2.sharex(self.ax1)
 
         self.canvas.mpl_connect("button_press_event", self.button_press_callback)
 
@@ -478,7 +422,6 @@ class LinCanvas(FigureCanvas):
                 pass
 
         if ad.active_gate.interactor is not None:
-            print("here")
             ad.active_gate.interactor.update_visuals()
             self.update_axes()
         else:
