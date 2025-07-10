@@ -10,7 +10,7 @@ def main():
     """
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--directory", default="data/faust_det_60")
+    parser.add_argument("directory", default="data/faust_det_60")
     parser.add_argument("-i", "--input_file", default="raw.parquet")
     args = parser.parse_args()
 

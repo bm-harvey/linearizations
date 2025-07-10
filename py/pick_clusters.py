@@ -109,7 +109,7 @@ class AppData:
         self.nav_bar = None
         self.gui = gui
         parser = argparse.ArgumentParser()
-        parser.add_argument("-d", "--directory", default="data/faust_det_60")
+        parser.add_argument("directory", default="data/faust_det_60")
         parser.add_argument("-i", "--input_file", default="ridges.parquet")
         parser.add_argument("-r", "--raw_file", default="raw.parquet")
         parser.add_argument("-o", "--output_file", default="clustered_points.parquet")

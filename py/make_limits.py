@@ -139,6 +139,7 @@ class LinGateInteractor(QObject):
         self.label.set_y(
             self.gate.low - (self.gate.high - self.gate.low) * 0.05,
         )
+        self.label.set_text(f"({self.gate.z_lbl}, {self.gate.a_lbl})")
 
     def draw_callback(self, event):
         self.ax.add_patch(self.rect)
@@ -245,6 +246,9 @@ class AppData:
 
         self.lin_nav_bar = None
         return
+
+    def saved_gates(self):
+        return [g for g in self.gates if g != self.active_gate]
 
     def update_interactors(self):
         if self.lin_ax is not None:
@@ -367,7 +371,7 @@ class LinCanvas(FigureCanvas):
             norm="log",
             aspect="auto",
             ax=self.ax1,
-            cmap=cmr.horizon_r,
+            cmap=cmr.ocean_r,
             y_range=y_range,
         )
         self.ax2.hist(
@@ -432,6 +436,260 @@ class LinCanvas(FigureCanvas):
         return
 
 
+class PidAdjuster(QWidget):
+    def __init__(self, app_data, lbl):
+        super().__init__()
+        self.app_data = app_data
+        self.lbl = lbl
+        self.layout = QHBoxLayout(self)
+        self.increment_btn = QPushButton("+")
+        self.big_increment_btn = QPushButton("++")
+        self.big_decrement_btn = QPushButton("--")
+        self.decrement_btn = QPushButton("-")
+        self.label = QLabel("")
+        self.label.setAlignment(Qt.AlignCenter)
+        self.layout.addWidget(self.big_decrement_btn)
+        self.layout.addWidget(self.decrement_btn)
+        self.layout.addWidget(self.label)
+        self.layout.addWidget(self.increment_btn)
+        self.layout.addWidget(self.big_increment_btn)
+
+    def gate(self):
+        return self.app_data.active_gate
+
+    def set_label(self):
+        if self.gate() is not None:
+            self.label.setText(f"{self.lbl}")
+
+    def small_inc(self):
+        return
+
+    def big_inc(self):
+        return
+
+    def big_dec(self):
+        return
+
+    def small_dec(self):
+        return
+
+
+class PidZAdjuster(QWidget):
+    def __init__(self, app_data, lbl):
+        super().__init__()
+        self.app_data = app_data
+        self.lbl = lbl
+        self.layout = QHBoxLayout(self)
+        self.increment_btn = QPushButton("+")
+        self.big_increment_btn = QPushButton("++")
+        self.big_decrement_btn = QPushButton("--")
+        self.decrement_btn = QPushButton("-")
+        self.label = QLabel("")
+        self.label.setAlignment(Qt.AlignCenter)
+        self.layout.addWidget(self.big_decrement_btn)
+        self.layout.addWidget(self.decrement_btn)
+        self.layout.addWidget(self.label)
+        self.layout.addWidget(self.increment_btn)
+        self.layout.addWidget(self.big_increment_btn)
+
+        self.increment_btn.clicked.connect(self.small_inc)
+        self.big_increment_btn.clicked.connect(self.big_inc)
+        self.decrement_btn.clicked.connect(self.small_dec)
+        self.big_decrement_btn.clicked.connect(self.big_dec)
+
+        self.set_label()
+
+    def gate(self):
+        return self.app_data.active_gate
+
+    def set_label(self):
+        if self.gate() is not None:
+            self.label.setText(f"{self.lbl}: {self.gate().z_lbl}")
+        else:
+            self.label.setText(f"{self.lbl}")
+        return
+
+    def small_inc(self):
+        if self.gate() is not None:
+            self.gate().z_lbl += 1
+            self.gate().interactor.update_visuals()
+            self.app_data.update_canvases()
+            self.set_label()
+
+        return
+
+    def big_inc(self):
+        if self.gate() is not None:
+            self.gate().z_lbl += 3
+            self.gate().interactor.update_visuals()
+            self.app_data.update_canvases()
+            self.set_label()
+        return
+
+    def big_dec(self):
+        if self.gate() is not None:
+            self.gate().z_lbl -= 3
+            self.gate().interactor.update_visuals()
+            self.app_data.update_canvases()
+            self.set_label()
+        return
+
+    def small_dec(self):
+        if self.gate() is not None:
+            self.gate().z_lbl -= 1
+            self.gate().interactor.update_visuals()
+            self.app_data.update_canvases()
+            self.set_label()
+        return
+
+
+class PidAAdjuster(QWidget):
+    def __init__(self, app_data, lbl):
+        super().__init__()
+        self.app_data = app_data
+        self.lbl = lbl
+        self.layout = QHBoxLayout(self)
+        self.increment_btn = QPushButton("+")
+        self.big_increment_btn = QPushButton("++")
+        self.big_decrement_btn = QPushButton("--")
+        self.decrement_btn = QPushButton("-")
+        self.label = QLabel("")
+        self.label.setAlignment(Qt.AlignCenter)
+        self.layout.addWidget(self.big_decrement_btn)
+        self.layout.addWidget(self.decrement_btn)
+        self.layout.addWidget(self.label)
+        self.layout.addWidget(self.increment_btn)
+        self.layout.addWidget(self.big_increment_btn)
+
+        self.increment_btn.clicked.connect(self.small_inc)
+        self.big_increment_btn.clicked.connect(self.big_inc)
+        self.decrement_btn.clicked.connect(self.small_dec)
+        self.big_decrement_btn.clicked.connect(self.big_dec)
+
+        self.set_label()
+
+    def gate(self):
+        return self.app_data.active_gate
+
+    def set_label(self):
+        if self.gate() is not None:
+            self.label.setText(f"{self.lbl}: {self.gate().a_lbl}")
+        else:
+            self.label.setText(f"{self.lbl}")
+        return
+
+    def small_inc(self):
+        if self.gate() is not None:
+            self.gate().a_lbl += 1
+            self.gate().interactor.update_visuals()
+            self.app_data.update_canvases()
+            self.set_label()
+
+        return
+
+    def big_inc(self):
+        if self.gate() is not None:
+            self.gate().a_lbl += 3
+            self.gate().interactor.update_visuals()
+            self.app_data.update_canvases()
+            self.set_label()
+        return
+
+    def big_dec(self):
+        if self.gate() is not None:
+            self.gate().a_lbl -= 3
+            self.gate().interactor.update_visuals()
+            self.app_data.update_canvases()
+            self.set_label()
+        return
+
+    def small_dec(self):
+        if self.gate() is not None:
+            self.gate().a_lbl -= 1
+            self.gate().interactor.update_visuals()
+            self.app_data.update_canvases()
+            self.set_label()
+        return
+
+
+class ImportExportPanel(QWidget):
+    def __init__(self, app_data):
+        super().__init__()
+        self.app_data = app_data
+        self.layout = QHBoxLayout(self)
+        self.export_btn = QPushButton("Export")
+        self.import_btn = QPushButton("Import")
+        self.layout.addWidget(self.export_btn, alignment=Qt.AlignTop)
+        self.layout.addWidget(self.import_btn, alignment=Qt.AlignTop)
+
+        self.export_btn.clicked.connect(self.export_gates)
+        self.import_btn.clicked.connect(self.import_gates)
+
+    def export_gates(self):
+        print("exporting ")
+        ad = self.app_data
+        saved_gates = ad.saved_gates()
+
+        file_name = os.path.join(ad.directory, "limits.dat")
+
+        with open(file_name, "w") as output_file:
+            for line_idx, g in enumerate(saved_gates):
+                if line_idx != 0:
+                    output_file.write("\n")
+                output_file.write(
+                    f"{g.z_lbl} {g.a_lbl} {g.left} {g.right} {g.low} {g.high}"
+                )
+        return
+
+    def import_gates(self):
+        print("exporting ")
+        ad = self.app_data
+        saved_gates = ad.saved_gates()
+
+        file_name = os.path.join(ad.directory, "limits.dat")
+
+        with open(file_name, "r") as input_file:
+            for line in input_file:
+                print(line)
+            # for line_idx, g in enumerate(saved_gates):
+            # if line_idx != 0:
+            # output_file.write("\n")
+            # output_file.write(
+            # f"{g.z_lbl} {g.a_lbl}\n{g.left} {g.right} {g.low} {g.high}"
+            # )
+        return
+
+
+class SidePanel(QWidget):
+    def __init__(self, app_data):
+        super().__init__()
+        self.app_data = app_data
+        self.layout = QVBoxLayout(self)
+        self.raw_panel = RawPanel(app_data)
+        self.pid_z_adjuster = PidZAdjuster(app_data, "Z")
+        self.pid_a_adjuster = PidAAdjuster(app_data, "A")
+
+        self.import_export_panel = ImportExportPanel(app_data)
+
+        QWidget.setSizePolicy(
+            self.pid_z_adjuster,
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Fixed,
+        )
+        QWidget.setSizePolicy(
+            self.pid_a_adjuster,
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Fixed,
+        )
+        QWidget.updateGeometry(self)
+
+        self.layout.addWidget(self.pid_z_adjuster, alignment=Qt.AlignTop)
+        self.layout.addWidget(self.pid_a_adjuster, alignment=Qt.AlignTop)
+        self.layout.addWidget(self.import_export_panel, alignment=Qt.AlignTop)
+        self.layout.addWidget(self.raw_panel)
+        self.setLayout(self.layout)
+
+
 class MakeLimitsGUI(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -447,14 +705,10 @@ class MakeLimitsGUI(QMainWindow):
         wid = QWidget()
         self.setCentralWidget(wid)
         main_layout = QHBoxLayout(wid)
-        self.raw_panel = RawPanel(app_data=self.app_data)
+        self.side_panel = SidePanel(app_data=self.app_data)
         self.lin_panel = LinPanel(app_data=self.app_data)
-        main_layout.addWidget(self.raw_panel, stretch=1)
+        main_layout.addWidget(self.side_panel, stretch=1)
         main_layout.addWidget(self.lin_panel, stretch=2)
-
-        delete_shortcut = QKeySequence(Qt.Key_D)
-        self.delete_shortcut = QShortcut(delete_shortcut, self)
-        self.delete_shortcut.activated.connect(self.delete_data)
 
         self.app_data.update_interactors()
 
@@ -479,6 +733,8 @@ class MakeLimitsGUI(QMainWindow):
         ad.gates.append(new_gate)
         ad.active_gate = new_gate
         ad.update_interactors()
+        self.side_panel.pid_z_adjuster.set_label()
+        self.side_panel.pid_a_adjuster.set_label()
 
     def keyPressEvent(self, e):
         if e.isAutoRepeat():
