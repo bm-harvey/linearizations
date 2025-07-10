@@ -51,6 +51,12 @@ plt.rcParams["xtick.color"] = "white"
 plt.rcParams["ytick.color"] = "white"
 
 
+class AppMode(Enum):
+    GATE_EDIT = 0
+    DELETE = 1
+    GATE_SELECT = 2
+
+
 class Gate:
     def __init__(self, z_lbl=0, a_lbl=0, low=0, high=1, left=0, right=1):
         self.z_lbl = z_lbl
@@ -83,6 +89,9 @@ class Gate:
         self.high = value
         if self.low > self.high:
             self.low, self.high = self.high, self.low
+
+    def x_center(self) -> float:
+        return (self.left + self.right) / 2
 
 
 class LinGateInteractor(QObject):
@@ -133,6 +142,14 @@ class LinGateInteractor(QObject):
             self.gate.right - self.gate.left,
             self.gate.high - self.gate.low,
         )
+        color = (0.0, 0, 0.3, 0.3)
+        edge_color = "blue"
+        if self.gate == self.app_data.active_gate:
+            color = (0.3, 0, 0.0, 0.3)
+            edge_color = "red"
+        self.rect.set_facecolor(color)
+        self.rect.set_edgecolor(edge_color)
+
         self.label.set_x(
             0.5 * (self.gate.left + self.gate.right),
         )
@@ -208,9 +225,12 @@ class AppData:
         args = parser.parse_args()
         self.directory = args.directory
         self.raw_file = "linearized.parquet"
+        self.mode_selector = None
         self.out_file = "lims.dat"
         self.bins = args.bins
         self.params = ParamManager(self.directory)
+
+        self.mode = AppMode.GATE_EDIT
 
         self.lin_ax = None
         self.lin_fig = None
@@ -245,7 +265,25 @@ class AppData:
         self.vertical_mode = False
 
         self.lin_nav_bar = None
+
         return
+
+    def update_mode_selector(self):
+        self.mode_selector.update_radio_btn()
+
+    def nearest_non_active_gate(self, x) -> Gate:
+        nearest_gate = None
+        nearest_dx = None
+        for gate in self.saved_gates():
+            dx = np.abs(gate.x_center() - x)
+            if nearest_gate is None:
+                nearest_gate = gate
+                nearest_dx = dx
+                continue
+            elif dx < nearest_dx:
+                nearest_gate = gate
+                nearest_dx = dx
+        return nearest_gate
 
     def saved_gates(self):
         return [g for g in self.gates if g != self.active_gate]
@@ -265,6 +303,15 @@ class AppData:
 
     def update_canvases(self):
         self.lin_canvas.draw()
+
+    def set_mode_to_edit(self):
+        self.mode = AppMode.GATE_EDIT
+
+    # def set_mode_to_delete(self):
+    # self.mode = AppMode.DELETE
+
+    def set_mode_to_gate_select(self):
+        self.mode = AppMode.GATE_SELECT
 
 
 class RawPanel(QWidget):
@@ -397,20 +444,118 @@ class LinCanvas(FigureCanvas):
         self.ax1.set_ylabel(self.app_data.params.x_col)
 
         self.canvas.mpl_connect("button_press_event", self.button_press_callback)
+        self.canvas.mpl_connect("motion_notify_event", self.motion_notify_callback)
 
         self.draw()
+
+    def motion_notify_callback(self, event):
+        if event.inaxes is None:
+            return
+        ad = self.app_data
+        match ad.mode:
+            case AppMode.GATE_EDIT:
+                return
+            case _:
+                pass
+
+        nearest_non_active = ad.nearest_non_active_gate(event.xdata)
+        if ad.active_gate is None:
+            ad.active_gate = nearest_non_active
+            nearest_non_active.interactor.update_visuals()
+            ad.update_canvases()
+            return
+
+        if np.abs(ad.active_gate.x_center() - event.xdata) > np.abs(
+            nearest_non_active.x_center() - event.xdata
+        ):
+            old_active = ad.active_gate
+            ad.active_gate = nearest_non_active
+
+            nearest_non_active.interactor.update_visuals()
+            old_active.interactor.update_visuals()
+            ad.update_canvases()
+
+        return
 
     def button_press_callback(self, event):
         if event.inaxes is None:
             return
 
         ad = self.app_data
-
-        if ad.active_gate is None:
-            return
-
+        match ad.mode:
+            case AppMode.GATE_SELECT:
+                ad.mode = AppMode.GATE_EDIT
+                ad.update_mode_selector()
+                return
+            case _:
+                pass
         if ad.lin_nav_bar.mode in [_Mode.ZOOM, _Mode.PAN]:
             return
+
+        if ad.active_gate is None:
+            # ad.gates.append
+            # ad.active_gate =
+            reference_gate = ad.nearest_non_active_gate(event.xdata)
+            width = None
+            low = None
+            high = None
+            z = None
+            a = None
+
+            if reference_gate is None:
+                width = (ad.raw_df["z_lin"].max() - ad.raw_df["z_lin"].min()) / 20
+                low = ad.raw_df[ad.params.x_col].min()
+                high = ad.raw_df[ad.params.x_col].max()
+                z = 1
+                a = 1
+            else:
+                width = reference_gate.right - reference_gate.left
+                low = reference_gate.low
+                high = reference_gate.high
+
+                if reference_gate.x_center() < event.xdata:
+                    a = reference_gate.a_lbl + 1
+
+                else:
+                    a = reference_gate.a_lbl - 1
+                z = reference_gate.z_lbl
+
+            match event.button:
+                case 1:  # left click
+                    new_gate = Gate(
+                        z_lbl=z,
+                        a_lbl=a,
+                        low=low,
+                        high=high,
+                        left=event.xdata,
+                        right=event.xdata + width,
+                    )
+                    new_gate.interactor = LinGateInteractor(ad.lin_ax, new_gate, ad)
+                    ad.lin_interactor_manager.interactors.append(new_gate.interactor)
+
+                    ad.gates.append(new_gate)
+                    ad.active_gate = new_gate
+                    new_gate.interactor.update_visuals()
+                    ad.update_canvases()
+                    # ad.lin()
+                    return
+
+                case 3:  # right click
+                    new_gate = Gate(
+                        z_lbl=z,
+                        a_lbl=a,
+                        low=low,
+                        high=high,
+                        left=event.xdata,
+                        right=event.xdata + width,
+                    )
+                    ad.gates.append(new_gate)
+                    ad.active_gate = new_gate
+                    ad.update_interactors()
+                case _:
+                    pass
+            return
+
         match event.button:
             case 1:  # left click
                 if ad.vertical_mode:
@@ -626,7 +771,7 @@ class ImportExportPanel(QWidget):
         self.import_btn.clicked.connect(self.import_gates)
 
     def export_gates(self):
-        print("exporting ")
+        print("exporting ...")
         ad = self.app_data
         saved_gates = ad.saved_gates()
 
@@ -639,25 +784,95 @@ class ImportExportPanel(QWidget):
                 output_file.write(
                     f"{g.z_lbl} {g.a_lbl} {g.left} {g.right} {g.low} {g.high}"
                 )
+        print("...done")
         return
 
     def import_gates(self):
-        print("exporting ")
+        print("importing ...")
         ad = self.app_data
-        saved_gates = ad.saved_gates()
 
         file_name = os.path.join(ad.directory, "limits.dat")
 
+        gates = []
         with open(file_name, "r") as input_file:
             for line in input_file:
-                print(line)
-            # for line_idx, g in enumerate(saved_gates):
-            # if line_idx != 0:
-            # output_file.write("\n")
-            # output_file.write(
-            # f"{g.z_lbl} {g.a_lbl}\n{g.left} {g.right} {g.low} {g.high}"
-            # )
+                words = line.split(" ")
+                for idx, w in enumerate(words):
+                    w = w.strip()
+                new_gate = Gate(
+                    z_lbl=int(words[0]),
+                    a_lbl=int(words[1]),
+                    left=float(words[2]),
+                    right=float(words[3]),
+                    low=float(words[4]),
+                    high=float(words[5]),
+                )
+                gates.append(new_gate)
+        ad.gates = gates
+        ad.active_gate = None
+        ad.update_interactors()
+        print("...done")
         return
+
+
+class ModeSelector(QWidget):
+    def __init__(self, app_data):
+        super().__init__()
+        self.app_data = app_data
+        self.app_data.mode_selector = self
+        self.layout = QVBoxLayout(self)
+
+        self.group_box = QGroupBox("App Mode")
+        self.group_box_layout = QHBoxLayout()
+        self.group_box.setLayout(self.group_box_layout)
+
+        self.layout.addWidget(self.group_box, alignment=QtCore.Qt.AlignTop)
+
+        self.edit_mode_radio_btn = QRadioButton("Edit (E)")
+        # self.delete_mode_radio_btn = QRadioButton("Delete (D)")
+        self.select_gate_radio_btn = QRadioButton("Gate Select (G)")
+
+        self.edit_mode_radio_btn.toggled.connect(self.app_data.set_mode_to_edit)
+
+        # self.delete_mode_radio_btn.toggled.connect(self.app_data.set_mode_to_delete)
+
+        self.select_gate_radio_btn.toggled.connect(
+            self.app_data.set_mode_to_gate_select
+        )
+
+        self.group_box_layout.addWidget(
+            self.edit_mode_radio_btn, alignment=QtCore.Qt.AlignTop
+        )
+        # self.group_box_layout.addWidget(
+        # self.delete_mode_radio_btn, alignment=QtCore.Qt.AlignTop
+        # )
+        self.group_box_layout.addWidget(
+            self.select_gate_radio_btn, alignment=QtCore.Qt.AlignTop
+        )
+
+        self.update_radio_btn()
+        self.setLayout(self.layout)
+
+    def update_radio_btn(self):
+        radio_btn = None
+        match self.app_data.mode:
+            case AppMode.GATE_EDIT:
+                radio_btn = self.edit_mode_radio_btn
+            # case AppMode.DELETE:
+            # radio_btn = self.delete_mode_radio_btn
+            case AppMode.GATE_SELECT:
+                radio_btn = self.select_gate_radio_btn
+
+        if not radio_btn.isChecked():
+            radio_btn.toggle()
+
+    # def delete_mode(self):
+    # self.app_data.mode = AppMode.DELETE
+    # self.update_radio_btn()
+
+    def gate_select_mode(self):
+        self.app_data.mode = AppMode.GATE_SELECT
+        self.update_radio_btn()
 
 
 class SidePanel(QWidget):
@@ -670,6 +885,7 @@ class SidePanel(QWidget):
         self.pid_a_adjuster = PidAAdjuster(app_data, "A")
 
         self.import_export_panel = ImportExportPanel(app_data)
+        self.mode_selector = ModeSelector(app_data)
 
         QWidget.setSizePolicy(
             self.pid_z_adjuster,
@@ -686,6 +902,7 @@ class SidePanel(QWidget):
         self.layout.addWidget(self.pid_z_adjuster, alignment=Qt.AlignTop)
         self.layout.addWidget(self.pid_a_adjuster, alignment=Qt.AlignTop)
         self.layout.addWidget(self.import_export_panel, alignment=Qt.AlignTop)
+        self.layout.addWidget(self.mode_selector, alignment=Qt.AlignTop)
         self.layout.addWidget(self.raw_panel)
         self.setLayout(self.layout)
 
@@ -714,10 +931,22 @@ class MakeLimitsGUI(QMainWindow):
 
         self.show()
 
-    def delete_data(self):
-        self.app_data.gates = []
+    def delete_gate(self):
+        ad = self.app_data
+        if ad.active_gate is None:
+            return
+
+        interactors = [
+            interactor
+            for interactor in ad.lin_interactor_manager.interactors
+            if interactor != ad.active_gate.interactor
+        ]
+        gates = [gate for gate in ad.gates if gate != ad.active_gate]
+
+        self.app_data.gates = gates
+        self.app_data.interactors = interactors
+        ad.active_gate = None
         self.app_data.update_interactors()
-        self.app_data.update_canvases()
 
     def save_gate(self):
         ad = self.app_data
@@ -732,7 +961,15 @@ class MakeLimitsGUI(QMainWindow):
         )
         ad.gates.append(new_gate)
         ad.active_gate = new_gate
-        ad.update_interactors()
+        new_gate.interactor = LinGateInteractor(ad.lin_ax, new_gate, ad)
+        ad.lin_interactor_manager.interactors.append(new_gate.interactor)
+
+        new_gate.interactor.update_visuals()
+        active_gate.interactor.update_visuals()  # old active gate
+        # ad.gates[len(ad.gates) - 2].interactor.update_visuals()
+
+        ad.update_canvases()
+
         self.side_panel.pid_z_adjuster.set_label()
         self.side_panel.pid_a_adjuster.set_label()
 
@@ -743,6 +980,14 @@ class MakeLimitsGUI(QMainWindow):
             self.app_data.vertical_mode = True
         if e.key() == Qt.Key_S:
             self.save_gate()
+        if e.key() == Qt.Key_D:
+            self.delete_gate()
+        if e.key() == Qt.Key_E:
+            self.app_data.mode = AppMode.GATE_EDIT
+            self.app_data.update_mode_selector()
+        if e.key() == Qt.Key_G:
+            self.app_data.mode = AppMode.GATE_SELECT
+            self.app_data.update_mode_selector()
 
     def keyReleaseEvent(self, e):
         if e.isAutoRepeat():
