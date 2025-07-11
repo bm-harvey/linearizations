@@ -988,6 +988,14 @@ class MakeLimitsGUI(QMainWindow):
         if e.key() == Qt.Key_G:
             self.app_data.mode = AppMode.GATE_SELECT
             self.app_data.update_mode_selector()
+        if e.key() == Qt.Key_T:
+            self.app_data.lin_canvas
+            if self.app_data.lin_nav_bar.mode == _Mode.ZOOM:
+                self.app_data.lin_nav_bar.mode.zoom()
+            elif self.app_data.lin_nav_bar.mode == _Mode.PAN:
+                self.app_data.lin_nav_bar.mode.pan()
+            else:
+                self.app_data.lin_nav_bar.mode.zoom()
 
     def keyReleaseEvent(self, e):
         if e.isAutoRepeat():
@@ -1019,5 +1027,3 @@ if __name__ == "__main__":
     app.setPalette(palette)
     ex = MakeLimitsGUI()
     sys.exit(app.exec_())
-
-    import sys
