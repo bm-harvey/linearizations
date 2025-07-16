@@ -8,4 +8,4 @@ dir=$1
 ./target/release/lowess_smooth -d $dir
 ./target/release/linearize -d $dir  
 
-python py/plot_smoothed.py -d $dir 
+python ./py/make_limits.py $dir 
