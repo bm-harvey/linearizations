@@ -179,23 +179,13 @@ impl Curve {
     ) -> &mut Self {
         let xs = nalgebra::DVector::from_vec(self.points.iter().map(|(x, _)| *x).collect_vec());
         let ys = nalgebra::DVector::from_vec(self.points.iter().map(|(_, y)| *y).collect_vec());
-        dbg!(&ys);
-        dbg!(&xs);
         let loess = Lowess::new(&xs, &ys);
 
         let window_size = (((self.points.len() as f64) * params.bandwidth()) as usize)
             .max(params.polynomial_order() as usize);
 
-        let new_y = loess.estimate(
-            new_x,
-            window_size,
-            false,
-            dbg!(params.polynomial_order() as usize),
-        );
+        let new_y = loess.estimate(new_x, window_size, false);
 
-        dbg!(window_size);
-        dbg!(new_y);
-        dbg!(new_x);
         if new_y.is_nan() {
             panic!()
         }
@@ -248,7 +238,6 @@ impl Curve {
         if avg_frac < 0.0 {
             avg_frac = -1. * avg_frac;
         }
-        dbg!(avg_frac);
 
         let dy_ref = self.evaluate(ref_x) - reference_curve_1.evaluate(ref_x);
         let dy_new = dy_ref * avg_frac.powf((new_x - ref_x) / dx);
@@ -295,8 +284,6 @@ impl Curve {
         //let new_y = new_y_2;
 
         if new_y.is_nan() {
-            dbg!(new_y_1);
-            dbg!(new_y_2);
             panic!()
         }
         if left_insert {
@@ -599,7 +586,7 @@ fn linearize(curves: &[Curve], xs: &[Option<f64>], ys: &[Option<f64>]) -> Vec<f6
 
 fn predict_next_line(curves: &[Curve]) -> Curve {
     let mut curves: Vec<_> = Vec::from(curves);
-    curves.sort_by(|c1, c2| dbg!(c1.y_at(0)).partial_cmp(dbg!(&c2.y_at(0))).unwrap());
+    curves.sort_by(|c1, c2| c1.y_at(0).partial_cmp(&c2.y_at(0)).unwrap());
 
     let curve_2 = &curves[curves.len() - 1];
     let curve_1 = &curves[curves.len() - 2];
