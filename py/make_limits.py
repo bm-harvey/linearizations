@@ -11,6 +11,7 @@ import mpl_toolkits.axisartist as AA
 import numpy as np
 import polars as pl
 from datashader.mpl_ext import dsshow
+from matplotlib import gridspec
 from matplotlib.backend_bases import _Mode
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
@@ -21,6 +22,8 @@ from matplotlib.text import Text
 from mpl_toolkits.axes_grid1 import host_subplot
 from mpl_toolkits.axisartist.axislines import AxesZero
 from mpl_toolkits.axisartist.parasite_axes import HostAxes
+
+# from mpl_toolkits.axisartist.parasite_axes import HostAxes
 from param_manager.param_manager import ParamManager
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QObject, Qt, pyqtSlot
@@ -122,16 +125,6 @@ class LinGateInteractor(QObject):
             lw=0.5,
             animated=True,
         )
-        self.label = Text(
-            0.5 * (self.gate.left + self.gate.right),
-            self.gate.low - (self.gate.high - self.gate.low) * 0.05,
-            f"({self.gate.z_lbl}, {self.gate.a_lbl})",
-            verticalalignment="top",
-            horizontalalignment="center",
-            animated=True,
-            rotation=90,
-            bbox=dict(facecolor=(0.2, 0.2, 0.2, 0.8)),
-        )
 
         self.ax.add_patch(self.rect)
 
@@ -150,19 +143,9 @@ class LinGateInteractor(QObject):
         self.rect.set_facecolor(color)
         self.rect.set_edgecolor(edge_color)
 
-        self.label.set_x(
-            0.5 * (self.gate.left + self.gate.right),
-        )
-        self.label.set_y(
-            self.gate.low - (self.gate.high - self.gate.low) * 0.05,
-        )
-        self.label.set_text(f"({self.gate.z_lbl}, {self.gate.a_lbl})")
-
     def draw_callback(self, event):
         self.ax.add_patch(self.rect)
-        self.ax.add_artist(self.label)
         self.ax.draw_artist(self.rect)
-        self.ax.draw_artist(self.label)
         return
 
     def motion_notify_callback(self, event):
@@ -170,7 +153,6 @@ class LinGateInteractor(QObject):
 
     def clean(self):
         self.rect.remove()
-        self.label.remove()
         pass
 
 
@@ -247,29 +229,31 @@ class AppData:
         self.raw_df = lf.collect()
         self.raw_df_pd = self.raw_df.to_pandas
         self.active_gate = None
-
-        test_gate = Gate()
-        test_gate.low = 5
-        test_gate.high = 50
-        test_gate.left = 39.2
-        test_gate.right = 43
-        test_gate.z_lbl = 1
-        test_gate.a_lbl = 1
-        test_gate.locked = False
-        self.gates = [test_gate]
+        self.gates = []
         self.lin_gate_interactors = []
         self.lin_interactor_manager = None
-
-        self.active_gate = test_gate
 
         self.vertical_mode = False
 
         self.lin_nav_bar = None
 
+        selfpid_ax = None
+
+        self.side_panel = None
+
         return
 
     def update_mode_selector(self):
         self.mode_selector.update_radio_btn()
+
+    def update_pid_axes(self):
+        ax_locations = [g.x_center() for g in self.gates]
+        if self.pid_ax is not None:
+            pid_ax_labels = [f"{g.z_lbl} | {g.a_lbl}" for g in self.gates]
+            self.pid_ax.set_xticks(ax_locations)
+            self.pid_ax.set_xticklabels(pid_ax_labels)
+            plt.setp(self.pid_ax.axis["pid"].major_ticklabels, rotation=-90, ha="left")
+        return
 
     def nearest_non_active_gate(self, x) -> Gate:
         nearest_gate = None
@@ -378,23 +362,45 @@ class RawCanvas(FigureCanvas):
 class LinCanvas(FigureCanvas):
     def __init__(self, app_data, parent=None, width=8, height=12, dpi=100, arg=0):
         self.arg = arg
-        self.fig = Figure(figsize=(width, height), dpi=dpi)
+        self.fig = plt.figure()
+        FigureCanvas.__init__(self, self.fig)
+        self.app_data = app_data
+        self.fig.set_layout_engine("tight")
+        # self.fig = Figure(figsize=(width, height), dpi=dpi)
 
-        self.fig, self.axs = plt.subplots(
-            3,
-            1,
-            gridspec_kw=dict(height_ratios=[3, 1, 1], wspace=0),
-            sharex=True,
-        )
+        # self.fig, self.axs = plt.subplots(
+        # 3,
+        # 1,
+        # gridspec_kw=dict(height_ratios=[3, 1, 1], wspace=0),
+        # sharex=True,
+        # )
 
-        self.fig.subplots_adjust(hspace=0)
-        self.ax1 = self.axs[0]
-        self.ax2 = self.axs[1]
-        self.ax3 = self.axs[2]
+        # self.fig.subplots_adjust(hspace=0)
+        # self.ax1 = self.axs[0]
+        # self.ax2 = self.axs[1]
+        # self.ax3 = self.axs[2]
+
+        gs = gridspec.GridSpec(3, 1, height_ratios=[3, 1, 1], figure=self.fig, hspace=0)
+        self.gs = gs
+        self.ax1 = host_subplot(gs[0], axes_class=HostAxes)
+        self.ax2 = host_subplot(gs[1], axes_class=AA.Axes)
+        self.ax3 = host_subplot(gs[2], axes_class=AA.Axes)
+
+        # self.a_ax = self.ax1.twiny()
+        # self.a_ax = self.ax1.get_aux_axes(sharex=self.ax1, viewlim_mode=None)
+        # self.a_ax.sharex(self.ax1)
+        # self.a_ax.axis["a"] = self.a_ax.new_fixed_axis(loc="top", offset=(0, 0))
+
+        # self.z_ax = self.ax1.
+        self.pid_ax = self.ax1.get_aux_axes(sharex=self.ax1, viewlim_mode=None)
+        self.pid_ax.sharex(self.ax1)
+        self.pid_ax.axis["pid"] = self.ax1.new_fixed_axis(loc="top", offset=(0, 0))
+
         self.app_data = app_data
         self.app_data.lin_ax = self.ax1
         self.app_data.lin_fig = self.fig
-        FigureCanvas.__init__(self, self.fig)
+        self.app_data.pid_ax = self.pid_ax
+
         self.canvas = self.fig.canvas
         self.app_data.lin_canvas = self.canvas
         self.setParent(parent)
@@ -411,14 +417,14 @@ class LinCanvas(FigureCanvas):
 
         y_range = (ad.raw_df[x_col].min(), ad.raw_df[x_col].max())
         y_range_scale = y_range[1] - y_range[0]
-        y_range = (y_range[0] - y_range_scale * 0.3, y_range[1] + y_range_scale * 0.1)
+        y_range = (y_range[0] - y_range_scale * 0.1, y_range[1] + y_range_scale * 0.1)
         dsshow(
             app_data.raw_df_pd,
             ds.Point("z_lin", self.app_data.params.x_col),
             norm="log",
             aspect="auto",
             ax=self.ax1,
-            cmap=cmr.ocean_r,
+            cmap=cmr.horizon_r,
             y_range=y_range,
         )
         self.ax2.hist(
@@ -445,6 +451,8 @@ class LinCanvas(FigureCanvas):
 
         self.canvas.mpl_connect("button_press_event", self.button_press_callback)
         self.canvas.mpl_connect("motion_notify_event", self.motion_notify_callback)
+
+        self.app_data.update_pid_axes()
 
         self.draw()
 
@@ -475,6 +483,10 @@ class LinCanvas(FigureCanvas):
             old_active.interactor.update_visuals()
             ad.update_canvases()
 
+        if self.app_data.side_panel is not None:
+            self.app_data.side_panel.pid_z_adjuster.set_label()
+            self.app_data.side_panel.pid_a_adjuster.set_label()
+
         return
 
     def button_press_callback(self, event):
@@ -503,7 +515,7 @@ class LinCanvas(FigureCanvas):
             a = None
 
             if reference_gate is None:
-                width = (ad.raw_df["z_lin"].max() - ad.raw_df["z_lin"].min()) / 20
+                width = (ad.raw_df["z_lin"].max() - ad.raw_df["z_lin"].min()) / 40
                 low = ad.raw_df[ad.params.x_col].min()
                 high = ad.raw_df[ad.params.x_col].max()
                 z = 1
@@ -536,8 +548,9 @@ class LinCanvas(FigureCanvas):
                     ad.gates.append(new_gate)
                     ad.active_gate = new_gate
                     new_gate.interactor.update_visuals()
-                    ad.update_canvases()
                     # ad.lin()
+                    self.app_data.update_pid_axes()
+                    ad.update_canvases()
                     return
 
                 case 3:  # right click
@@ -554,6 +567,9 @@ class LinCanvas(FigureCanvas):
                     ad.update_interactors()
                 case _:
                     pass
+
+            self.app_data.update_pid_axes()
+            self.canvas.draw()
             return
 
         match event.button:
@@ -575,6 +591,7 @@ class LinCanvas(FigureCanvas):
             self.update_axes()
         else:
             self.app_data.update_interactors()
+        self.app_data.update_pid_axes()
         self.canvas.draw()
 
     def update_axes(self):
@@ -625,10 +642,10 @@ class PidZAdjuster(QWidget):
         self.app_data = app_data
         self.lbl = lbl
         self.layout = QHBoxLayout(self)
-        self.increment_btn = QPushButton("+")
+        self.increment_btn = QPushButton("+ (2)")
         self.big_increment_btn = QPushButton("++")
         self.big_decrement_btn = QPushButton("--")
-        self.decrement_btn = QPushButton("-")
+        self.decrement_btn = QPushButton("- (1)")
         self.label = QLabel("")
         self.label.setAlignment(Qt.AlignCenter)
         self.layout.addWidget(self.big_decrement_btn)
@@ -658,8 +675,10 @@ class PidZAdjuster(QWidget):
         if self.gate() is not None:
             self.gate().z_lbl += 1
             self.gate().interactor.update_visuals()
+            self.app_data.update_pid_axes()
             self.app_data.update_canvases()
             self.set_label()
+
 
         return
 
@@ -667,6 +686,7 @@ class PidZAdjuster(QWidget):
         if self.gate() is not None:
             self.gate().z_lbl += 3
             self.gate().interactor.update_visuals()
+            self.app_data.update_pid_axes()
             self.app_data.update_canvases()
             self.set_label()
         return
@@ -675,6 +695,7 @@ class PidZAdjuster(QWidget):
         if self.gate() is not None:
             self.gate().z_lbl -= 3
             self.gate().interactor.update_visuals()
+            self.app_data.update_pid_axes()
             self.app_data.update_canvases()
             self.set_label()
         return
@@ -683,6 +704,7 @@ class PidZAdjuster(QWidget):
         if self.gate() is not None:
             self.gate().z_lbl -= 1
             self.gate().interactor.update_visuals()
+            self.app_data.update_pid_axes()
             self.app_data.update_canvases()
             self.set_label()
         return
@@ -694,10 +716,10 @@ class PidAAdjuster(QWidget):
         self.app_data = app_data
         self.lbl = lbl
         self.layout = QHBoxLayout(self)
-        self.increment_btn = QPushButton("+")
+        self.increment_btn = QPushButton("+ (4)")
         self.big_increment_btn = QPushButton("++")
         self.big_decrement_btn = QPushButton("--")
-        self.decrement_btn = QPushButton("-")
+        self.decrement_btn = QPushButton("- (3)")
         self.label = QLabel("")
         self.label.setAlignment(Qt.AlignCenter)
         self.layout.addWidget(self.big_decrement_btn)
@@ -727,6 +749,7 @@ class PidAAdjuster(QWidget):
         if self.gate() is not None:
             self.gate().a_lbl += 1
             self.gate().interactor.update_visuals()
+            self.app_data.update_pid_axes()
             self.app_data.update_canvases()
             self.set_label()
 
@@ -736,6 +759,7 @@ class PidAAdjuster(QWidget):
         if self.gate() is not None:
             self.gate().a_lbl += 3
             self.gate().interactor.update_visuals()
+            self.app_data.update_pid_axes()
             self.app_data.update_canvases()
             self.set_label()
         return
@@ -744,6 +768,7 @@ class PidAAdjuster(QWidget):
         if self.gate() is not None:
             self.gate().a_lbl -= 3
             self.gate().interactor.update_visuals()
+            self.app_data.update_pid_axes()
             self.app_data.update_canvases()
             self.set_label()
         return
@@ -752,6 +777,7 @@ class PidAAdjuster(QWidget):
         if self.gate() is not None:
             self.gate().a_lbl -= 1
             self.gate().interactor.update_visuals()
+            self.app_data.update_pid_axes()
             self.app_data.update_canvases()
             self.set_label()
         return
@@ -810,6 +836,7 @@ class ImportExportPanel(QWidget):
                 gates.append(new_gate)
         ad.gates = gates
         ad.active_gate = None
+        self.app_data.update_pid_axes()
         ad.update_interactors()
         print("...done")
         return
@@ -886,6 +913,7 @@ class SidePanel(QWidget):
 
         self.import_export_panel = ImportExportPanel(app_data)
         self.mode_selector = ModeSelector(app_data)
+        self.app_data.side_panel = self
 
         QWidget.setSizePolicy(
             self.pid_z_adjuster,
@@ -968,6 +996,7 @@ class MakeLimitsGUI(QMainWindow):
         active_gate.interactor.update_visuals()  # old active gate
         # ad.gates[len(ad.gates) - 2].interactor.update_visuals()
 
+        ad.update_pid_axes()
         ad.update_canvases()
 
         self.side_panel.pid_z_adjuster.set_label()
@@ -991,11 +1020,19 @@ class MakeLimitsGUI(QMainWindow):
         if e.key() == Qt.Key_T:
             self.app_data.lin_canvas
             if self.app_data.lin_nav_bar.mode == _Mode.ZOOM:
-                self.app_data.lin_nav_bar.mode.zoom()
+                self.app_data.lin_nav_bar.zoom()
             elif self.app_data.lin_nav_bar.mode == _Mode.PAN:
-                self.app_data.lin_nav_bar.mode.pan()
+                self.app_data.lin_nav_bar.pan()
             else:
-                self.app_data.lin_nav_bar.mode.zoom()
+                self.app_data.lin_nav_bar.zoom()
+        if e.key() == Qt.Key_1:
+            self.app_data.side_panel.pid_z_adjuster.small_dec()
+        if e.key() == Qt.Key_2:
+            self.app_data.side_panel.pid_z_adjuster.small_inc()
+        if e.key() == Qt.Key_3:
+            self.app_data.side_panel.pid_a_adjuster.small_dec()
+        if e.key() == Qt.Key_4:
+            self.app_data.side_panel.pid_a_adjuster.small_inc()
 
     def keyReleaseEvent(self, e):
         if e.isAutoRepeat():
