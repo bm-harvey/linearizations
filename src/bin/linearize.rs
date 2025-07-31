@@ -184,7 +184,12 @@ impl Curve {
         let window_size = (((self.points.len() as f64) * params.bandwidth()) as usize)
             .max(params.polynomial_order() as usize);
 
-        let new_y = loess.estimate(new_x, window_size, false);
+        let new_y = loess.estimate(
+            new_x,
+            window_size,
+            false,
+            params.polynomial_order() as usize,
+        );
 
         if new_y.is_nan() {
             panic!()
