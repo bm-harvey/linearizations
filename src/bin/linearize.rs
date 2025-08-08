@@ -115,14 +115,12 @@ impl Curve {
         ((x - self.x_at(idx_l)) * self.y_at(idx_r) + (self.x_at(idx_r) - x) * self.y_at(idx_l)) / dx
     }
 
-    fn extend_from_single_reference_curve(
+    fn y_value_from_reference_curve(
         &mut self,
         ref_x: f64,
         new_x: f64,
         reference_curve: &Curve,
-        left_insert: bool,
-    ) -> &mut Self {
-        // get xs of overlap
+    ) -> f64 {
         let x_low = self.x_lims().0.max(reference_curve.x_lims().0);
         let x_high = self.x_lims().1.min(reference_curve.x_lims().1);
 
@@ -158,6 +156,57 @@ impl Curve {
         let dy_ref = self.evaluate(ref_x) - reference_curve.evaluate(ref_x);
         let dy_new = dy_ref * avg_frac.powf((new_x - ref_x) / dx);
         let new_y = reference_curve.evaluate(new_x) + dy_new;
+        new_y
+    }
+
+    fn extend_from_single_reference_curve(
+        &mut self,
+        ref_x: f64,
+        new_x: f64,
+        reference_curve: &Curve,
+        left_insert: bool,
+    ) -> &mut Self {
+        // get xs of overlap
+        //let x_low = self.x_lims().0.max(reference_curve.x_lims().0);
+        //let x_high = self.x_lims().1.min(reference_curve.x_lims().1);
+
+        //let x_range = x_high - x_low;
+
+        //let dx = x_range / 200.;
+
+        //let mut x = x_low;
+        //let mut xs = vec![];
+        //let mut dys = vec![];
+        //while x < x_high {
+        //xs.push(x);
+        //dys.push(self.evaluate(x) - reference_curve.evaluate(x));
+        //x += dx;
+        //}
+
+        //let mut dys_frac = vec![];
+        //if false {
+        //for idx in 1..dys.len() {
+        //dys_frac.push(dys[idx - 1] / dys[idx]);
+        //}
+        //} else {
+        //for idx in 1..dys.len() {
+        //dys_frac.push(dys[idx] / dys[idx - 1]);
+        //}
+        //}
+
+        //let mut avg_frac = dys_frac.iter().sum::<f64>() / dys_frac.len() as f64;
+        //if avg_frac < 0.0 {
+        //avg_frac = -1. * avg_frac;
+        //}
+
+        //let dy_ref = self.evaluate(ref_x) - reference_curve.evaluate(ref_x);
+        //let dy_new = dy_ref * avg_frac.powf((new_x - ref_x) / dx);
+        //let new_y = reference_curve.evaluate(new_x) + dy_new;
+
+        let new_y = self.y_value_from_reference_curve(ref_x, new_x, reference_curve);
+        let offset_correction =
+            self.y_value_from_reference_curve(ref_x, ref_x, reference_curve) - self.evaluate(ref_x);
+        let new_y = new_y - offset_correction;
 
         if new_y.is_nan() {
             panic!()
@@ -184,12 +233,21 @@ impl Curve {
         let window_size = (((self.points.len() as f64) * params.bandwidth()) as usize)
             .max(params.polynomial_order() as usize);
 
+        let offset_correction = loess.estimate(
+            xs[0],
+            window_size,
+            false,
+            params.polynomial_order() as usize,
+        ) - ys[0];
+
         let new_y = loess.estimate(
             new_x,
             window_size,
             false,
             params.polynomial_order() as usize,
         );
+
+        let new_y = new_y - offset_correction;
 
         if new_y.is_nan() {
             panic!()
@@ -212,81 +270,92 @@ impl Curve {
         reference_curve_2: &Curve,
         left_insert: bool,
     ) -> &mut Self {
-        let x_low = self.x_lims().0.max(reference_curve_1.x_lims().0);
-        let x_high = self.x_lims().1.min(reference_curve_1.x_lims().1);
+        //let x_low = self.x_lims().0.max(reference_curve_1.x_lims().0);
+        //let x_high = self.x_lims().1.min(reference_curve_1.x_lims().1);
 
-        let x_range = x_high - x_low;
+        //let x_range = x_high - x_low;
 
-        let dx = x_range / 20.;
+        //let dx = x_range / 20.;
 
-        let mut x = x_low;
-        let mut xs = vec![];
-        let mut dys = vec![];
-        while x < x_high {
-            xs.push(x);
-            dys.push(self.evaluate(x) - reference_curve_1.evaluate(x));
-            x += dx;
-        }
+        //let mut x = x_low;
+        //let mut xs = vec![];
+        //let mut dys = vec![];
+        //while x < x_high {
+            //xs.push(x);
+            //dys.push(self.evaluate(x) - reference_curve_1.evaluate(x));
+            //x += dx;
+        //}
 
-        let mut dys_frac = vec![];
-        if false {
-            for idx in 1..dys.len() {
-                dys_frac.push(dys[idx - 1] / dys[idx]);
-            }
-        } else {
-            for idx in 1..dys.len() {
-                dys_frac.push(dys[idx] / dys[idx - 1]);
-            }
-        }
+        //let mut dys_frac = vec![];
+        //if false {
+            //for idx in 1..dys.len() {
+                //dys_frac.push(dys[idx - 1] / dys[idx]);
+            //}
+        //} else {
+            //for idx in 1..dys.len() {
+                //dys_frac.push(dys[idx] / dys[idx - 1]);
+            //}
+        //}
 
-        let mut avg_frac = dys_frac.iter().sum::<f64>() / dys_frac.len() as f64;
-        if avg_frac < 0.0 {
-            avg_frac = -1. * avg_frac;
-        }
+        //let mut avg_frac = dys_frac.iter().sum::<f64>() / dys_frac.len() as f64;
+        //if avg_frac < 0.0 {
+            //avg_frac = -1. * avg_frac;
+        //}
 
-        let dy_ref = self.evaluate(ref_x) - reference_curve_1.evaluate(ref_x);
-        let dy_new = dy_ref * avg_frac.powf((new_x - ref_x) / dx);
-        let new_y_1 = reference_curve_1.evaluate(new_x) + dy_new;
+        //let dy_ref_1 = self.evaluate(ref_x) - reference_curve_1.evaluate(ref_x);
+        //let dy_new = dy_ref_1 * avg_frac.powf((new_x - ref_x) / dx);
+        //let new_y_1 = reference_curve_1.evaluate(new_x) + dy_new;
 
-        let x_low = self.x_lims().0.max(reference_curve_2.x_lims().0);
-        let x_high = self.x_lims().1.min(reference_curve_2.x_lims().1);
+        //let x_low = self.x_lims().0.max(reference_curve_2.x_lims().0);
+        //let x_high = self.x_lims().1.min(reference_curve_2.x_lims().1);
 
-        let x_range = x_high - x_low;
+        //let x_range = x_high - x_low;
 
-        let dx = x_range / 20.;
+        //let dx = x_range / 20.;
 
-        let mut x = x_low;
-        let mut xs = vec![];
-        let mut dys = vec![];
-        while x < x_high {
-            xs.push(x);
-            dys.push(self.evaluate(x) - reference_curve_2.evaluate(x));
-            x += dx;
-        }
+        //let mut x = x_low;
+        //let mut xs = vec![];
+        //let mut dys = vec![];
+        //while x < x_high {
+            //xs.push(x);
+            //dys.push(self.evaluate(x) - reference_curve_2.evaluate(x));
+            //x += dx;
+        //}
 
-        let mut dys_frac = vec![];
-        if false {
-            for idx in 1..dys.len() {
-                dys_frac.push(dys[idx - 1] / dys[idx]);
-            }
-        } else {
-            for idx in 1..dys.len() {
-                dys_frac.push(dys[idx] / dys[idx - 1]);
-            }
-        }
+        //let mut dys_frac = vec![];
+        //if false {
+            //for idx in 1..dys.len() {
+                //dys_frac.push(dys[idx - 1] / dys[idx]);
+            //}
+        //} else {
+            //for idx in 1..dys.len() {
+                //dys_frac.push(dys[idx] / dys[idx - 1]);
+            //}
+        //}
 
-        let mut avg_frac = dys_frac.iter().sum::<f64>() / dys_frac.len() as f64;
-        if avg_frac < 0.0 {
-            avg_frac = -1. * avg_frac;
-        }
+        //let mut avg_frac = dys_frac.iter().sum::<f64>() / dys_frac.len() as f64;
+        //if avg_frac < 0.0 {
+            //avg_frac = -1. * avg_frac;
+        //}
 
-        let dy_ref = self.evaluate(ref_x) - reference_curve_2.evaluate(ref_x);
-        let dy_new = dy_ref * avg_frac.powf((new_x - ref_x) / dx);
-        let new_y_2 = reference_curve_2.evaluate(new_x) + dy_new;
+        //let dy_new = dy_ref_2 * avg_frac.powf((new_x - ref_x) / dx);
+        //let new_y_2 = reference_curve_2.evaluate(new_x) + dy_new;
 
         //let new_y = 50.;
-        let new_y = 0.5 * (new_y_1 + new_y_2);
         //let new_y = new_y_2;
+
+        let dy_ref_1 = self.evaluate(ref_x) - reference_curve_1.evaluate(ref_x);
+        let dy_ref_2 = self.evaluate(ref_x) - reference_curve_2.evaluate(ref_x);
+
+        let new_y_1 = self.y_value_from_reference_curve(ref_x, new_x, reference_curve_1)
+            - self.y_value_from_reference_curve(ref_x, ref_x, reference_curve_1)
+            + self.evaluate(ref_x);
+
+        let new_y_2 = self.y_value_from_reference_curve(ref_x, new_x, reference_curve_2)
+            - self.y_value_from_reference_curve(ref_x, ref_x, reference_curve_2)
+            + self.evaluate(ref_x);
+
+        let new_y = (dy_ref_2.abs() * new_y_1 + dy_ref_1.abs() * new_y_2) / (dy_ref_1.abs() + dy_ref_2.abs());
 
         if new_y.is_nan() {
             panic!()
