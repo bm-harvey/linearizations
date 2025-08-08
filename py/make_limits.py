@@ -250,9 +250,11 @@ class AppData:
         ax_locations = [g.x_center() for g in self.gates]
         if self.pid_ax is not None:
             pid_ax_labels = [f"{g.z_lbl} | {g.a_lbl}" for g in self.gates]
-            self.pid_ax.set_xticks(ax_locations)
-            self.pid_ax.set_xticklabels(pid_ax_labels)
+            self.pid_ax.axis["pid"].axis.set_ticks(ax_locations)
+            self.pid_ax.axis["pid"].axis.set_ticklabels(pid_ax_labels)
             plt.setp(self.pid_ax.axis["pid"].major_ticklabels, rotation=-90, ha="left")
+        # self.pid_ax.tick_params(labelbottom=False)
+        # self.pid_ax.draw()
         return
 
     def nearest_non_active_gate(self, x) -> Gate:
@@ -356,6 +358,21 @@ class RawCanvas(FigureCanvas):
             cmap=cmr.horizon_r,
         )
 
+        extended_curves = os.path.join(self.app_data.directory, "extended_curves")
+
+        for file_name in os.listdir(extended_curves):
+            file_name = os.path.join(extended_curves, file_name)
+            df = pl.read_parquet(file_name)
+            self.ax.plot(df["x"], df["y"], color="red", lw=1, ls="--")
+
+        smooth_curves = os.path.join(self.app_data.directory, "smoothed_lines")
+        for file_name in os.listdir(smooth_curves):
+            file_name = os.path.join(smooth_curves, file_name)
+            df = pl.read_parquet(file_name).filter(
+                pl.col("extrapolated_left").not_() & pl.col("extrapolated_right").not_()
+            )
+            self.ax.plot(df["x"], df["y"], color="red", lw=1)
+
         self.draw()
 
 
@@ -365,7 +382,7 @@ class LinCanvas(FigureCanvas):
         self.fig = plt.figure()
         FigureCanvas.__init__(self, self.fig)
         self.app_data = app_data
-        self.fig.set_layout_engine("tight")
+        # self.fig.set_layout_engine("tight")
         # self.fig = Figure(figsize=(width, height), dpi=dpi)
 
         # self.fig, self.axs = plt.subplots(
@@ -679,7 +696,6 @@ class PidZAdjuster(QWidget):
             self.app_data.update_canvases()
             self.set_label()
 
-
         return
 
     def big_inc(self):
@@ -975,6 +991,7 @@ class MakeLimitsGUI(QMainWindow):
         self.app_data.interactors = interactors
         ad.active_gate = None
         self.app_data.update_interactors()
+        self.app_data.update_pid_axes()
 
     def save_gate(self):
         ad = self.app_data
