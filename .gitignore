@@ -16,3 +16,6 @@ wheels/
 
 # data files
 *.parquet
+
+fig/
+mk_fig/
